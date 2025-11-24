@@ -3,8 +3,7 @@
   const DEFAULTS = {
     target: "body",                   // CSS selector or Element
     api: "",                          // REQUIRED: your Cloudflare Worker endpoint, e.g. https://your-worker.example.com/chat
-    lang: "auto",                     // initial language
-    storageKeyLang: "mw_lang_v1"      // localStorage key for language
+    lang: "auto"                      // initial language ("auto" = detect from user message)
   };
 
   // Minimal, namespaced styles. Encapsulated via Shadow DOM.
@@ -14,21 +13,19 @@
     .mw-btn { padding: .6rem 1rem; border: 0; border-radius: 999px; color: #fff; background: #041e42; box-shadow: 0 8px 24px rgba(0,0,0,.15); cursor: pointer; }
     .mw-modal { position: fixed; right: 24px; bottom: 86px; width: min(680px, 92vw); max-height: min(78vh, 780px); display: none;
                 background: #fff; border-radius: 16px; box-shadow: 0 18px 50px rgba(0,0,0,.28); overflow: hidden; }
-    .mw-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid rgba(0,0,0,.08); }
-    .mw-close { border: 0; background: transparent; cursor: pointer; font-size: 18px; line-height: 1; }
-    .mw-body { display: grid; grid-template-rows: auto 1fr auto; height: min(78vh, 780px); }
-    .mw-row { display: flex; align-items: center; gap: 10px; padding: 10px; justify-content: space-between; }
-    .mw-select { padding: 6px 8px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; }
-    .mw-chat { padding: 12px; overflow: auto; background: #fafafa; }
+    .mw-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #002f5f; color: #fff; }
+    .mw-close { border: 0; background: transparent; cursor: pointer; font-size: 18px; line-height: 1; color: #fff; }
+    .mw-body { display: grid; grid-template-rows: 1fr auto; height: min(78vh, 780px); background: #fafafa; }
+    .mw-chat { padding: 12px; overflow: auto; }
     .mw-msg { max-width: 82%; margin: 8px 0; padding: 10px 12px; border-radius: 14px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
     .mw-msg.user { margin-left: auto; background: #e8f0ff; }
     .mw-msg.bot { margin-right: auto; background: #f2f2f2; }
     .mw-inputbar { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 10px; border-top: 1px solid #eee; background: #fff; }
     .mw-input { resize: none; min-height: 44px; max-height: 120px; padding: 10px 12px; border-radius: 12px; border: 1px solid #e5e7eb; outline: none; }
     .mw-send { border: 0; border-radius: 12px; padding: 10px 14px; background: #041e42; color: #fff; cursor: pointer; }
-    .mw-small { font-size: 12px; color: #666; }
   `;
 
+  // Language dropdown + 上方那一行已经被完全移除
   const TEMPLATE = `
     <div class="mw-root" role="region" aria-label="Chat widget">
       <button class="mw-btn" aria-haspopup="dialog" aria-controls="mw-modal">Chat</button>
@@ -38,23 +35,7 @@
           <button class="mw-close" aria-label="Close">×</button>
         </div>
         <div class="mw-body">
-          <div class="mw-row">
-            <label>
-              <span style="margin-right:8px">Language</span>
-              <select class="mw-select" aria-label="Language">
-                <option value="auto">Auto / 自动</option>
-                <option value="en">English</option>
-                <option value="zh">中文</option>
-                <option value="fr">Français</option>
-                <option value="es">Español</option>
-                <option value="ja">日本語</option>
-              </select>
-            </label>
-            <span class="mw-small">All features run on the host page.</span>
-          </div>
-
           <div class="mw-chat" aria-live="polite"></div>
-
           <div class="mw-inputbar">
             <textarea class="mw-input" placeholder="Type your message…"></textarea>
             <button class="mw-send">Send</button>
@@ -76,7 +57,7 @@
     return { host, shadow };
   }
 
-  // Build messages with a system prompt that enforces the selected language.
+  // Build messages with a system prompt that enforces / guides the language.
   function buildMessages(text, lang) {
     const sys = {
       en: "You are a helpful assistant. Reply in natural, concise English.",
@@ -85,7 +66,14 @@
       es: "Eres un asistente útil. Responde en español de forma natural y concisa.",
       ja: "あなたは役に立つアシスタントです。日本語で簡潔かつ自然に回答してください。"
     };
-    const system = sys[lang] || "You are a helpful assistant. Use the user's language when appropriate.";
+
+    let system;
+    if (!lang || lang === "auto") {
+      system = "You are a helpful assistant. Detect the user's language from their message and reply in that language in a natural, concise style.";
+    } else {
+      system = sys[lang] || "You are a helpful assistant. Use the user's language when appropriate.";
+    }
+
     return [
       { role: "system", content: system },
       { role: "user", content: text }
@@ -124,11 +112,9 @@
     const chat   = q(shadow, ".mw-chat");
     const input  = q(shadow, ".mw-input");
     const send   = q(shadow, ".mw-send");
-    const langEl = q(shadow, ".mw-select");
 
-    // Restore language
-    const saved = localStorage.getItem(opts.storageKeyLang) || opts.lang || "auto";
-    langEl.value = saved;
+    // 当前使用的语言（默认 "auto" 自动检测）
+    let currentLang = opts.lang || "auto";
 
     function setOpen(open) { modal.style.display = open ? "block" : "none"; }
     btn.addEventListener("click", () => setOpen(modal.style.display !== "block"));
@@ -148,8 +134,7 @@
       const text = (input.value || "").trim();
       if (!text) return;
 
-      const lang = langEl.value;
-      localStorage.setItem(opts.storageKeyLang, lang);
+      const lang = currentLang;
 
       addMsg(text, "user");
       input.value = "";
@@ -170,7 +155,10 @@
     send.addEventListener("click", doSend);
     input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSend(); } });
 
-    return { send: doSend, setLanguage(v) { langEl.value = v; localStorage.setItem(opts.storageKeyLang, v); } };
+    return { 
+      send: doSend, 
+      setLanguage(v) { currentLang = v || "auto"; } 
+    };
   }
 
   function init(options = {}) {
