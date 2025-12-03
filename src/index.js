@@ -11,8 +11,6 @@
     - Use Vite library mode to output IIFE (global "MyWidget") and ES module.
 */
 
-// ✅ 这里写你的 HuggingFace Space 前端地址
-// 如果将来 Space 域名变了，只改这一个常量就行
 const CHAT_IFRAME_SRC = 'https://abyss2009-chatgpt-chatbot.hf.space/';
 
 const TEMPLATE = /* html */ `
