@@ -11,7 +11,7 @@ var MyWidget=function(r){"use strict";const x=`
       </div>
 
       <div class="mw-body">
-        <!-- 真正的 Chatbot iframe -->
+        <!-- real Chatbot iframe -->
         <iframe
           class="mw-iframe"
           src="https://abyss2009-chatgpt-chatbot.hf.space/"
