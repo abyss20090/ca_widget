@@ -13,8 +13,9 @@
     .mw-btn { padding: .6rem 1rem; border: 0; border-radius: 999px; color: #fff; background: #041e42; box-shadow: 0 8px 24px rgba(0,0,0,.15); cursor: pointer; }
     .mw-modal { position: fixed; right: 24px; bottom: 86px; width: min(680px, 92vw); max-height: min(78vh, 780px); display: none;
                 background: #fff; border-radius: 16px; box-shadow: 0 18px 50px rgba(0,0,0,.28); overflow: hidden; }
-    .mw-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #002f5f; color: #fff; }
-    .mw-close { border: 0; background: transparent; cursor: pointer; font-size: 18px; line-height: 1; color: #fff; }
+    /* hide internal header + close button; outer site theme will provide its own header */
+    .mw-header { display: none; }
+    .mw-close { display: none; }
     .mw-body { display: grid; grid-template-rows: 1fr auto; height: min(78vh, 780px); background: #fafafa; }
     .mw-chat { padding: 12px; overflow: auto; }
     .mw-msg { max-width: 82%; margin: 8px 0; padding: 10px 12px; border-radius: 14px; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
@@ -25,7 +26,7 @@
     .mw-send { border: 0; border-radius: 12px; padding: 10px 14px; background: #041e42; color: #fff; cursor: pointer; }
   `;
 
-  // Language dropdown + 上方那一行已经被完全移除
+  // Language dropdown + 上方那一行已经被完全移除；内部 header 现在也通过 CSS 隐藏
   const TEMPLATE = `
     <div class="mw-root" role="region" aria-label="Chat widget">
       <button class="mw-btn" aria-haspopup="dialog" aria-controls="mw-modal">Chat</button>
@@ -118,7 +119,10 @@
 
     function setOpen(open) { modal.style.display = open ? "block" : "none"; }
     btn.addEventListener("click", () => setOpen(modal.style.display !== "block"));
-    closeX.addEventListener("click", () => setOpen(false));
+    if (closeX) {
+      // close button 现在被隐藏，但为了兼容保留事件绑定
+      closeX.addEventListener("click", () => setOpen(false));
+    }
     document.addEventListener("keydown", e => { if (e.key === "Escape") setOpen(false); });
 
     function addMsg(text, who) {
