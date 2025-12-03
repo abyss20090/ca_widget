@@ -13,7 +13,7 @@ const y = "https://abyss2009-chatgpt-chatbot.hf.space/", v = (
       </div>
 
       <div class="mw-body">
-        <!-- 真正的 Chatbot iframe -->
+        <!-- real Chatbot iframe -->
         <iframe
           class="mw-iframe"
           src="${y}"
