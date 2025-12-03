@@ -26,7 +26,7 @@ const TEMPLATE = /* html */ `
       </div>
 
       <div class="mw-body">
-        <!-- 真正的 Chatbot iframe -->
+        <!-- real Chatbot iframe -->
         <iframe
           class="mw-iframe"
           src="${CHAT_IFRAME_SRC}"
@@ -49,7 +49,6 @@ const STYLES = `
   .mw-iframe{width:100%;height:100%;border:0;display:block}
 `;
 
-// 内部小工具
 function resolveTarget(target) {
   if (!target) return document.body;
   return typeof target === 'string' ? document.querySelector(target) : target;
