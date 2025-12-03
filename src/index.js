@@ -20,14 +20,7 @@ const TEMPLATE = /* html */ `
         <button class="mw-close" aria-label="Close">×</button>
       </div>
       <div class="mw-body">
-        <label class="mw-row">
-          <span>Language</span>
-          <select class="mw-lang">
-            <option value="en">English</option>
-            <option value="zh">中文</option>
-          </select>
-        </label>
-        <!-- Add your own fields/content below -->
+        <!-- Host page or widget JS can inject real chat content here -->
         <div class="mw-note">This content is fully controlled by the widget.</div>
       </div>
     </div>
@@ -41,8 +34,6 @@ const STYLES = `
   .mw-header{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#002f5f;color:#fff}
   .mw-close{border:0;background:transparent;cursor:pointer;font-size:18px;line-height:1;color:#fff}
   .mw-body{padding:14px}
-  /* 把语言行彻底隐藏掉（select 还在，但用户看不到） */
-  .mw-row{display:none}
   .mw-note{margin-top:8px;font-size:12px;color:#666}
 `;
 
@@ -65,17 +56,17 @@ function createMountRoot(useShadow) {
  * Initialize the widget inside a target container.
  * @param {Object} options
  * @param {string|HTMLElement} [options.target='body'] - CSS selector or element to mount into
- * @param {string} [options.lang='en'] - initial language
+ * @param {string} [options.lang='en'] - (deprecated) initial language, no longer used
  * @param {boolean} [options.shadow=true] - use Shadow DOM when possible
- * @param {(lang:string)=>void} [options.onLangChange] - callback when user changes language
+ * @param {(lang:string)=>void} [options.onLangChange] - (deprecated) no longer used
  * @param {boolean} [options.openAtStart=false] - open modal immediately after mount
  */
 export function init(options = {}) {
   const {
     target = 'body',
-    lang = 'en',
+    lang = 'en',      // kept for backward compatibility (unused)
     shadow = true,
-    onLangChange,
+    onLangChange,     // kept for backward compatibility (unused)
     openAtStart = false,
   } = options;
 
@@ -109,10 +100,6 @@ export function init(options = {}) {
   const trigger = wrapper.querySelector('.mw-trigger');
   const modal = wrapper.querySelector('.mw-modal');
   const closeBtn = wrapper.querySelector('.mw-close');
-  const langSel = wrapper.querySelector('.mw-lang');
-
-  // Initialize state
-  if (langSel) langSel.value = lang;
 
   // Event bindings
   const toggle = () => (modal.hidden = !modal.hidden);
@@ -132,16 +119,6 @@ export function init(options = {}) {
   closeBtn.addEventListener('click', close);
   document.addEventListener('keydown', onDocKeydown);
   document.addEventListener('click', onOutsideClick, true);
-
-  if (langSel) {
-    langSel.addEventListener('change', (e) => {
-      const value = e.target.value;
-      // Widget owns the state; notify host via callback
-      if (typeof onLangChange === 'function') onLangChange(value);
-      // Dispatch a DOM CustomEvent as well (useful for non-JS hosts)
-      host.dispatchEvent(new CustomEvent('mw:lang', { detail: { value } }));
-    });
-  }
 
   if (openAtStart) modal.hidden = false;
 
