@@ -11,17 +11,31 @@
     - Use Vite library mode to output IIFE (global "MyWidget") and ES module.
 */
 
+// ✅ 这里写你的 HuggingFace Space 前端地址
+// 如果将来 Space 域名变了，只改这一个常量就行
+const CHAT_IFRAME_SRC = 'https://abyss2009-chatgpt-chatbot.hf.space/';
+
 const TEMPLATE = /* html */ `
   <div class="mw" role="region" aria-label="MyWidget">
-    <button class="mw-trigger" aria-haspopup="dialog" aria-controls="mw-modal">Chat</button>
+    <button class="mw-trigger" aria-haspopup="dialog" aria-controls="mw-modal">
+      Chat
+    </button>
+
     <div class="mw-modal" id="mw-modal" role="dialog" aria-modal="true" hidden>
       <div class="mw-header">
         <strong>Cheshire Academy Chatbot</strong>
         <button class="mw-close" aria-label="Close">×</button>
       </div>
+
       <div class="mw-body">
-        <!-- Host page or widget JS can inject real chat content here -->
-        <div class="mw-note">This content is fully controlled by the widget.</div>
+        <!-- 真正的 Chatbot iframe -->
+        <iframe
+          class="mw-iframe"
+          src="${CHAT_IFRAME_SRC}"
+          title="Cheshire Academy Chatbot"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade"
+        ></iframe>
       </div>
     </div>
   </div>
@@ -30,14 +44,14 @@ const TEMPLATE = /* html */ `
 const STYLES = `
   .mw{position:fixed;right:24px;bottom:24px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;z-index:2147483647}
   .mw-trigger{padding:.6rem 1rem;border:0;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.15);cursor:pointer;background:#041e42;color:#fff}
-  .mw-modal{position:fixed;right:24px;bottom:86px;width:320px;max-width:calc(100vw - 40px);padding:0;border-radius:16px;background:#fff;box-shadow:0 18px 50px rgba(0,0,0,.28);overflow:hidden}
-  .mw-header{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#002f5f;color:#fff}
+  .mw-modal{position:fixed;right:24px;bottom:86px;width:420px;max-width:calc(100vw - 40px);padding:0;border-radius:16px;background:#fff;box-shadow:0 18px 50px rgba(0,0,0,.28);overflow:hidden}
+  .mw-header{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#002f5f;color:#fff}
   .mw-close{border:0;background:transparent;cursor:pointer;font-size:18px;line-height:1;color:#fff}
-  .mw-body{padding:14px}
-  .mw-note{margin-top:8px;font-size:12px;color:#666}
+  .mw-body{padding:0;height:560px;background:#f5f5f7}
+  .mw-iframe{width:100%;height:100%;border:0;display:block}
 `;
 
-// Internal helpers
+// 内部小工具
 function resolveTarget(target) {
   if (!target) return document.body;
   return typeof target === 'string' ? document.querySelector(target) : target;
