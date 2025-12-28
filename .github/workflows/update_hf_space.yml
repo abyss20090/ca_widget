@@ -2,7 +2,7 @@ name: Update Hugging Face Space (crawl + upload)
 
 on:
   schedule:
-    - cron: "0 */1 * * *"
+    - cron: "0 * * * *"
   workflow_dispatch:
   push:
     paths:
