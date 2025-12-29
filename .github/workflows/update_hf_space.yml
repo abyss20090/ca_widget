@@ -38,6 +38,13 @@ jobs:
           CA_MAX_PAGES: "2500"
           CA_ALLOWED_DOMAINS: "cheshireacademy.org,www.cheshireacademy.org"
 
+      - name: Prepare HF Space folder (ensure dir + sync sources)
+        run: |
+          mkdir -p hf_space
+          rm -rf hf_space/sources
+          cp -r sources hf_space/sources
+          ls -ლა hf_space | head -n 50
+
       - name: Upload Space folder to Hugging Face
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
