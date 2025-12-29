@@ -2,18 +2,13 @@ name: Update Hugging Face Space (crawl + upload)
 
 on:
   schedule:
-    - cron: "*/5 * * * *"   # every 5 minutes (UTC)
+    - cron: "0 16 * * *"   # daily, 16:00 UTC
   workflow_dispatch:
   push:
     paths:
       - "crawler/**"
       - "hf_space/**"
       - ".github/workflows/update_hf_space.yml"
-
-# 防止 5 分钟一次导致任务堆积/并发（你的 crawl 可能 > 5 分钟）
-concurrency:
-  group: ca-crawl-upload
-  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -24,14 +19,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Debug - print trigger time
-        run: |
-          echo "event=$GITHUB_EVENT_NAME"
-          echo "UTC now:"
-          date -u
-          echo "runner now:"
-          date
 
       - name: Setup Python
         uses: actions/setup-python@v5
