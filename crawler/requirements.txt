@@ -1,4 +1,4 @@
-requests>=2.31.0
-beautifulsoup4>=4.12.2
-lxml>=4.9.3
-huggingface_hub>=0.23.0
+requests==2.32.3
+beautifulsoup4==4.12.3
+lxml==5.3.0
+pypdf>=4.2.0
