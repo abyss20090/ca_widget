@@ -43,9 +43,9 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_ID: ${{ secrets.HF_SPACE_ID }}
-          HF_SPACE_DIR: hf_space
           HF_HUB_ENABLE_HF_TRANSFER: "1"
-          
+          HF_COMMIT_BATCH: "200"
+        
       - name: Prepare HF Space folder (ensure dir + sync sources)
         run: |
           mkdir -p hf_space
