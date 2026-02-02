@@ -685,7 +685,8 @@ def main():
         filename = _safe_filename(final_url)
         path = os.path.join(OUT_DIR, filename)
         with open(path, "w", encoding="utf-8") as f:
-            f.write(f"URL: {final_url}\n\n")
+            #f.write(f"URL: {final_url}\n\n")
+            # NOTE: Do not write URL line into content to avoid link spam in chatbot.
             f.write(text[:MAX_TEXT_CHARS])
 
         saved += 1
