@@ -1,7 +1,6 @@
 import os
 import shutil
 import time
-import inspect
 from pathlib import Path
 from typing import List
 
@@ -20,7 +19,7 @@ def _sync_sources_into_space(repo_root: Path, space_dir: Path) -> None:
     target = space_dir / "sources"
     target.mkdir(parents=True, exist_ok=True)
 
-    # 清空旧 sources
+    # 清空旧 sources（保证删掉已不存在的页面）
     for item in target.iterdir():
         if item.is_dir():
             shutil.rmtree(item)
@@ -32,59 +31,39 @@ def _sync_sources_into_space(repo_root: Path, space_dir: Path) -> None:
 
 
 def _iter_files(folder: Path) -> List[Path]:
-    """
-    Collect all files under folder, excluding cache / git / pyc.
-    """
     ignore_dirs = {".git", "__pycache__"}
     ignore_suffix = {".pyc"}
 
     files: List[Path] = []
     for p in folder.rglob("*"):
         if p.is_dir():
-            # skip ignored dirs
-            if p.name in ignore_dirs:
-                continue
             continue
-
         if any(part in ignore_dirs for part in p.parts):
             continue
         if p.suffix.lower() in ignore_suffix:
             continue
-
         files.append(p)
 
     files.sort()
     return files
 
 
-def _safe_create_commit(api: HfApi, **kwargs):
-    """
-    Call api.create_commit with optional timeout if supported.
-    """
-    sig = inspect.signature(api.create_commit)
-    if "timeout" in sig.parameters and "timeout" not in kwargs:
-        timeout_s = int(os.getenv("HF_HTTP_TIMEOUT", "300"))
-        kwargs["timeout"] = timeout_s
-    return api.create_commit(**kwargs)
-
-
 def _upload_with_batched_commits(space_dir: Path, repo_id: str, token: str) -> None:
     """
-    Upload via small commits to avoid a huge single commit timing out.
+    兜底方案：小批量 commit（把默认 batch 降低，避免 ReadTimeout）
     """
-    batch_size = int(os.getenv("HF_COMMIT_BATCH", "80"))
-    max_retries = int(os.getenv("HF_MAX_RETRIES", "6"))
+    batch_size = int(os.getenv("HF_COMMIT_BATCH", "40"))  # 关键：默认降到 40
+    max_retries = int(os.getenv("HF_MAX_RETRIES", "10"))
 
     api = HfApi(token=token)
     files = _iter_files(space_dir)
     total = len(files)
-
     if total == 0:
         print("[upload_to_hf] Nothing to upload (space folder is empty).")
         return
 
     num_commits = (total + batch_size - 1) // batch_size
-    print(f"[upload_to_hf] Uploading {total} files in {num_commits} commits (batch_size={batch_size})...")
+    print(f"[upload_to_hf] Fallback batched commits: {total} files / {num_commits} commits (batch={batch_size})")
 
     for idx in range(num_commits):
         start = idx * batch_size
@@ -94,22 +73,15 @@ def _upload_with_batched_commits(space_dir: Path, repo_id: str, token: str) -> N
         ops = []
         for fp in chunk:
             rel = fp.relative_to(space_dir).as_posix()
-            ops.append(
-                CommitOperationAdd(
-                    path_in_repo=rel,
-                    path_or_fileobj=str(fp),
-                )
-            )
+            ops.append(CommitOperationAdd(path_in_repo=rel, path_or_fileobj=str(fp)))
 
         commit_msg = f"Update Space (batched) {idx+1}/{num_commits} ({len(chunk)} files)"
 
-        # retry loop (ReadTimeout / transient failures)
         attempt = 0
         while True:
             attempt += 1
             try:
-                _safe_create_commit(
-                    api,
+                api.create_commit(
                     repo_id=repo_id,
                     repo_type="space",
                     operations=ops,
@@ -120,15 +92,14 @@ def _upload_with_batched_commits(space_dir: Path, repo_id: str, token: str) -> N
                 break
             except Exception as e:
                 msg = repr(e)
-                # empty commit / no change -> treat as success
                 if "No files have been modified since last commit" in msg or "empty commit" in msg:
-                    print(f"[upload_to_hf] no changes detected in batch {idx+1}/{num_commits}, skip.")
+                    print(f"[upload_to_hf] no changes in batch {idx+1}/{num_commits}, skip.")
                     break
 
                 if attempt >= max_retries:
                     raise
 
-                sleep_s = min(5 * attempt, 30)
+                sleep_s = min(10 * attempt, 90)
                 print(f"[upload_to_hf] commit failed (attempt {attempt}/{max_retries}) -> {msg}")
                 print(f"[upload_to_hf] retrying in {sleep_s}s ...")
                 time.sleep(sleep_s)
@@ -137,17 +108,12 @@ def _upload_with_batched_commits(space_dir: Path, repo_id: str, token: str) -> N
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[1]
 
-    # allow workflow to pass HF_SPACE_DIR
     space_dir_env = os.environ.get("HF_SPACE_DIR", "").strip()
-    if space_dir_env:
-        space_dir = (repo_root / space_dir_env).resolve()
-    else:
-        space_dir = repo_root / "hf_space"
+    space_dir = (repo_root / space_dir_env).resolve() if space_dir_env else (repo_root / "hf_space")
 
     if not space_dir.exists():
         raise FileNotFoundError(f"hf_space folder not found: {space_dir}")
 
-    # 同步 sources
     _sync_sources_into_space(repo_root, space_dir)
 
     hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_TOKEN")
@@ -158,22 +124,46 @@ def main() -> None:
     if not repo_id:
         raise RuntimeError("Missing HF_SPACE_ID (or HF_REPO_ID) in env/secrets.")
 
-    # 1) Try upload_folder first (fast path)
+    api = HfApi(token=hf_token)
+
+    # 0) 官方推荐：upload_large_folder（更适合大目录）:contentReference[oaicite:4]{index=4}
+    if hasattr(api, "upload_large_folder"):
+        try:
+            print("[upload_to_hf] Trying api.upload_large_folder() ...")
+            api.upload_large_folder(
+                repo_id=repo_id,
+                repo_type="space",
+                folder_path=str(space_dir),
+                commit_message="Update Space (crawler + sources)",
+                token=hf_token,
+            )
+            print("[upload_to_hf] Done via upload_large_folder().")
+            return
+        except Exception as e:
+            print("[upload_to_hf] upload_large_folder failed -> fallback:", repr(e))
+
+    # 1) 次优：upload_folder + multi_commits（自动拆分/可恢复）:contentReference[oaicite:5]{index=5}
     try:
-        print("[upload_to_hf] Trying upload_folder() ...")
+        print("[upload_to_hf] Trying upload_folder(multi_commits=True) ...")
         upload_folder(
             folder_path=str(space_dir),
             repo_id=repo_id,
             repo_type="space",
             token=hf_token,
             commit_message="Update Space (crawler + sources)",
+            multi_commits=True,
+            multi_commits_verbose=True,
+            ignore_patterns=["**/.git/**", "**/__pycache__/**", "**/*.pyc"],
         )
-        print("[upload_to_hf] Done via upload_folder().")
+        print("[upload_to_hf] Done via upload_folder(multi_commits=True).")
         return
+    except TypeError as e:
+        # 旧版 huggingface_hub 没这些参数
+        print("[upload_to_hf] upload_folder doesn't support multi_commits -> fallback:", repr(e))
     except Exception as e:
-        print("[upload_to_hf] upload_folder failed -> fallback to batched commits:", repr(e))
+        print("[upload_to_hf] upload_folder failed -> fallback:", repr(e))
 
-    # 2) Fallback: batched commits with retries + timeout
+    # 2) 兜底：你原来的 batched commits（但默认 batch 已降到 40）
     _upload_with_batched_commits(space_dir, repo_id, hf_token)
     print("[upload_to_hf] Done (batched commits).")
 
