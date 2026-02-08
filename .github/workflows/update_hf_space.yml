@@ -30,31 +30,32 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r ./crawler/requirements.txt
 
-      - name: Crawl Cheshire Academy site
-        env:
-          CA_BASE_URL: "https://www.cheshireacademy.org"
-          CA_SOURCES_DIR: "sources"
-          CA_MAX_PAGES: "4000"
-          CA_MAX_DISCOVERED: "50000"
-          CA_MAX_DEPTH: "6"
-          CA_HTTP_TIMEOUT: "20"
-          CA_CONNECT_TIMEOUT: "10"
-          CA_SLEEP: "0.08"
-          CA_RETRIES: "2"
-          CA_BACKOFF: "0.8"
-          # 如需额外域名（比如 athletics 子域），在这里加
-          # CA_ALLOWED_DOMAINS: "cheshireacademy.org,www.cheshireacademy.org,athletics.cheshireacademy.org"
-        run: |
-          python ./crawler/crawl_site.py
+      # - name: Crawl Cheshire Academy site
+      #   env:
+      #     CA_BASE_URL: "https://www.cheshireacademy.org"
+      #     CA_SOURCES_DIR: "sources"
+      #     CA_MAX_PAGES: "4000"
+      #     CA_MAX_DISCOVERED: "50000"
+      #     CA_MAX_DEPTH: "6"
+      #     CA_HTTP_TIMEOUT: "20"
+      #     CA_CONNECT_TIMEOUT: "10"
+      #     CA_SLEEP: "0.08"
+      #     CA_RETRIES: "2"
+      #     CA_BACKOFF: "0.8"
+      #     # 如需额外域名（比如 athletics 子域），在这里加
+      #     # CA_ALLOWED_DOMAINS: "cheshireacademy.org,www.cheshireacademy.org,athletics.cheshireacademy.org"
+      #   run: |
+      #     python ./crawler/crawl_site.py
 
-      - name: Prepare hf_space folder
-        run: |
-          rm -rf hf_space/sources
-          mkdir -p hf_space/sources
-          cp -r sources/* hf_space/sources/
+      # - name: Prepare hf_space folder
+      #   run: |
+      #     rm -rf hf_space/sources
+      #     mkdir -p hf_space/sources
+      #     cp -r sources/* hf_space/sources/
 
       - name: Upload to Hugging Face Space
         env:
+          HF_SPACE_ID : ${{ secrets.HF_SPACE_ID  }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_REPO: "abyss20090/ca_widget"
           HF_SPACE_DIR: "hf_space"
