@@ -45,7 +45,7 @@ jobs:
           # 如需额外域名（比如 athletics 子域），在这里加
           # CA_ALLOWED_DOMAINS: "cheshireacademy.org,www.cheshireacademy.org,athletics.cheshireacademy.org"
         run: |
-          python crawl_site.py
+          python ./crawler/crawl_site.py
 
       - name: Prepare hf_space folder
         run: |
@@ -68,4 +68,4 @@ jobs:
           # 让 hf_transfer 生效（你 requirements.txt 里已装 hf_transfer）
           HF_HUB_ENABLE_HF_TRANSFER: "1"
         run: |
-          python upload_to_hf.py
+          python ./crawler/upload_to_hf.py
